@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0d12;
+  --color-surface: #141821;
+  --color-surface-2: #1c2130;
+  --color-line: #262c3b;
+  --color-muted: #8a93a8;
+  --color-accent: #4f9dff;
+  --color-accent-strong: #2f7fe8;
+  --color-danger: #ff5d5d;
+  --font-sans: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--color-bg);
+  color: #e8ebf2;
+  font-family: var(--font-sans);
+  overscroll-behavior-y: none;
+}
+
+/* Skip layout/paint for off-screen cards; keeps 1000+ item grids smooth. */
+.card-cv {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+.animate-toast {
+  animation: toast-in 0.18s ease-out;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+.animate-sheet {
+  animation: sheet-in 0.2s ease-out;
+}

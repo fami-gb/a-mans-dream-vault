@@ -1,0 +1,19 @@
+# All state lives in two host directories (see .env). Copy both to migrate hosts.
+services:
+  videovault:
+    build: .
+    image: videovault:latest
+    container_name: videovault
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      WORKERS: ${WORKERS:-1}
+      TRASH_DAYS: ${TRASH_DAYS:-30}
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+      - ${LIBRARY_DIR:-../videos}:/library

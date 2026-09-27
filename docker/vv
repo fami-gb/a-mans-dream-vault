@@ -1,0 +1,6 @@
+#!/bin/sh
+# `docker compose exec videovault vv import|verify` runs as PUID so files in /data keep the right owner.
+if [ "$(id -u)" = "0" ]; then
+  exec su-exec "${PUID:-1000}:${PGID:-1000}" /app/videovault "$@"
+fi
+exec /app/videovault "$@"
