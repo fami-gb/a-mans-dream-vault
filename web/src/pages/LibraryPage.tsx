@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { DndContext, DragOverlay, MouseSensor, pointerWithin, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import { ChevronRight, CloudUpload, FolderPlus, Loader2, Menu as MenuIcon, MoreHorizontal, Search, Trash2, X } from "lucide-react";
+import { ChevronRight, CloudUpload, FolderPlus, GalleryVerticalEnd, Loader2, Menu as MenuIcon, MoreHorizontal, Search, Trash2, X } from "lucide-react";
 import { api, media, type Sort, type Video } from "../lib/api";
 import { ancestors, childrenOf, keys, useFolders, useMoveVideos, usePurgeVideos, useTrashVideos, useVideoList } from "../lib/queries";
 import { isTypingTarget } from "../lib/format";
@@ -233,6 +233,16 @@ export function LibraryPage() {
                   </h1>
               </div>
               <div className={`flex items-center gap-1 ${searchOpen ? "flex-1 sm:flex-none" : ""}`}>
+                {total > 0 && !searchOpen && (
+                  <Link
+                    to={`/feed?${new URLSearchParams({ from: view, sort: query.sort, q: query.q })}`}
+                    className="grid size-10 place-items-center rounded-lg hover:bg-white/10"
+                    aria-label="縦スクロールで再生"
+                    title="縦スクロールで再生"
+                  >
+                    <GalleryVerticalEnd size={20} />
+                  </Link>
+                )}
                 {searchOpen ? (
                   <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 sm:w-64">
                     <Search size={16} className="shrink-0 text-muted" />

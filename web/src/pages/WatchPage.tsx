@@ -1,30 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Folder as FolderIcon, FolderInput, Inbox, Loader2, Pencil, Repeat, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Folder as FolderIcon, GalleryVerticalEnd, FolderInput, Inbox, Loader2, Pencil, Repeat, RotateCcw, Trash2 } from "lucide-react";
 import { media, type ListQuery, type Sort } from "../lib/api";
 import { bytes, date, duration, isTypingTarget } from "../lib/format";
 import { folderLabel, useFolders, useRenameVideo, useRestoreVideos, useTrashVideos, useVideo, useVideoIds } from "../lib/queries";
+import { store, playErrorText } from "../lib/playback";
 import { viewPath } from "../lib/view";
 import { useUI } from "../state/stores";
 
 const posKey = (id: string) => `vv:pos:${id}`;
-const store = {
-  get: (k: string) => {
-    try {
-      return localStorage.getItem(k);
-    } catch {
-      return null;
-    }
-  },
-  set: (k: string, v: string | null) => {
-    try {
-      if (v === null) localStorage.removeItem(k);
-      else localStorage.setItem(k, v);
-    } catch {
-      /* ignore */
-    }
-  },
-};
 
 export function WatchPage() {
   const { id = "" } = useParams();
@@ -176,11 +160,7 @@ export function WatchPage() {
         )}
         {playError && v && (
           <div className="absolute inset-x-4 top-4 rounded-xl bg-black/80 p-4 text-center text-sm">
-            {v.missing
-              ? "元ファイルが見つかりません。"
-              : v.status === "processing"
-                ? "このブラウザで再生できる形式に変換中です。しばらくお待ちください。"
-                : "再生できませんでした。"}
+            {playErrorText(v)}
           </div>
         )}
         {prevId && (
@@ -267,6 +247,13 @@ export function WatchPage() {
             <a href={media.original(v.id)} className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-2 text-sm hover:bg-white/10">
               <Download size={16} /> ダウンロード
             </a>
+            <Link
+              to={`/feed?${new URLSearchParams({ from: ctx.view, sort: ctx.sort, q: ctx.q, v: v.id })}`}
+              replace
+              className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-2 text-sm hover:bg-white/10"
+            >
+              <GalleryVerticalEnd size={16} /> 縦スクロール
+            </Link>
             <div className="ml-auto flex items-center gap-2">
               <button
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${autoNext ? "bg-accent/20 text-accent" : "bg-surface-2 text-muted"}`}

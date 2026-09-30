@@ -8,6 +8,7 @@ import { useServerEvents } from "./lib/events";
 import { addFiles } from "./lib/uploader";
 import { LibraryPage } from "./pages/LibraryPage";
 import { WatchPage } from "./pages/WatchPage";
+import { FeedPage } from "./pages/FeedPage";
 import { Toasts } from "./components/Toasts";
 import { UploadPanel } from "./components/UploadPanel";
 import { MoveVideosPicker } from "./components/FolderPicker";
@@ -68,6 +69,7 @@ function Authed() {
         <Route path="/trash" element={<LibraryPage />} />
         <Route path="/f/:folderId" element={<LibraryPage />} />
         <Route path="/watch/:id" element={<WatchPage />} />
+        <Route path="/feed" element={<FeedPage />} />
         <Route path="*" element={<Navigate to="/all" replace />} />
       </Routes>
       <UploadPanel />
