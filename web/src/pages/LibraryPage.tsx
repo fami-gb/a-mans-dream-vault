@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { DndContext, DragOverlay, MouseSensor, pointerWithin, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { ChevronRight, CloudUpload, FolderPlus, GalleryVerticalEnd, Loader2, Menu as MenuIcon, MoreHorizontal, Search, Trash2, X } from "lucide-react";
 import { api, media, type Sort, type Video } from "../lib/api";
@@ -13,6 +13,12 @@ import { FolderCard, UploadCard, VideoCard, type CardClick } from "../components
 import { SelectionBar } from "../components/SelectionBar";
 import { ConfirmSheet, Menu } from "../components/ui";
 import { useQueryClient } from "@tanstack/react-query";
+
+// Scroll anchor per history entry (location.key): the first visible card and its offset from the
+// viewport top. scrollY alone drifts, since cards skipped by content-visibility have guessed heights.
+type Anchor = { id: string; top: number; y: number };
+const scrollMem = new Map<string, Anchor>();
+const cardSel = (id: string) => `[data-card="${CSS.escape(id)}"]`;
 
 export function LibraryPage() {
   const query = useListQuery();
@@ -77,6 +83,46 @@ export function LibraryPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [query, view, trash]);
+
+  // ---- scroll restoration (browser's own runs before the list renders, and lands off) ----
+  const { key: locKey } = useLocation();
+  const pending = useRef<Anchor | null>(null);
+  // ponytail: stays true for the rest of a restored visit — content-visibility's 240px guess
+  // would shift cards above the viewport; re-enable by measuring real card height if big grids lag.
+  const [noCv, setNoCv] = useState(false);
+  useLayoutEffect(() => {
+    history.scrollRestoration = "manual";
+    pending.current = scrollMem.get(locKey) ?? null;
+    setNoCv(pending.current != null);
+    let raf = 0;
+    const save = () => {
+      if (raf || pending.current) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        for (const el of document.querySelectorAll<HTMLElement>("[data-card]")) {
+          const top = el.getBoundingClientRect().top;
+          if (top + el.offsetHeight > 0) return void scrollMem.set(locKey, { id: el.dataset.card!, top, y: window.scrollY });
+        }
+      });
+    };
+    window.addEventListener("scroll", save, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", save);
+      cancelAnimationFrame(raf);
+    };
+  }, [locKey]);
+  useLayoutEffect(() => {
+    const a = pending.current;
+    if (!a || !noCv || list.isLoading) return;
+    const el = document.querySelector(cardSel(a.id));
+    if (!el && list.hasNextPage && !list.isFetchNextPageError) {
+      if (!list.isFetchingNextPage) list.fetchNextPage();
+      return;
+    }
+    // Card gone (deleted/moved) and nothing more to load: fall back to the raw offset.
+    window.scrollTo(0, el ? el.getBoundingClientRect().top + window.scrollY - a.top : a.y);
+    pending.current = null;
+  }, [noCv, list.data, list.isLoading, list.isFetchingNextPage, list.hasNextPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Infinite scroll.
   const sentinel = useRef<HTMLDivElement>(null);
@@ -339,7 +385,7 @@ export function LibraryPage() {
             ) : items.length === 0 && placeholders.length === 0 ? (
               <EmptyState view={view} q={query.q} onUpload={upload} />
             ) : (
-              <div className="grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 sm:gap-x-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className={`grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 sm:gap-x-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 ${noCv ? "no-cv" : ""}`}>
                 {placeholders.map((u) => (
                   <UploadCard key={u.key} u={u} />
                 ))}
