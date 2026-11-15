@@ -14,8 +14,11 @@ import { SelectionBar } from "../components/SelectionBar";
 import { ConfirmSheet, Menu } from "../components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 
-// Scroll offset per history entry (location.key), so going back lands where you left.
-const scrollMem = new Map<string, number>();
+// Scroll anchor per history entry (location.key): the first visible card and its offset from the
+// viewport top. scrollY alone drifts, since cards skipped by content-visibility have guessed heights.
+type Anchor = { id: string; top: number; y: number };
+const scrollMem = new Map<string, Anchor>();
+const cardSel = (id: string) => `[data-card="${CSS.escape(id)}"]`;
 
 export function LibraryPage() {
   const query = useListQuery();
@@ -83,29 +86,42 @@ export function LibraryPage() {
 
   // ---- scroll restoration (browser's own runs before the list renders, and lands off) ----
   const { key: locKey } = useLocation();
-  const pendingY = useRef<number | null>(null);
+  const pending = useRef<Anchor | null>(null);
   // ponytail: stays true for the rest of a restored visit — content-visibility's 240px guess
   // would shift cards above the viewport; re-enable by measuring real card height if big grids lag.
   const [noCv, setNoCv] = useState(false);
   useLayoutEffect(() => {
     history.scrollRestoration = "manual";
-    const y = scrollMem.get(locKey) ?? null;
-    pendingY.current = y;
-    setNoCv(y != null);
-    const save = () => pendingY.current == null && scrollMem.set(locKey, window.scrollY);
+    pending.current = scrollMem.get(locKey) ?? null;
+    setNoCv(pending.current != null);
+    let raf = 0;
+    const save = () => {
+      if (raf || pending.current) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        for (const el of document.querySelectorAll<HTMLElement>("[data-card]")) {
+          const top = el.getBoundingClientRect().top;
+          if (top + el.offsetHeight > 0) return void scrollMem.set(locKey, { id: el.dataset.card!, top, y: window.scrollY });
+        }
+      });
+    };
     window.addEventListener("scroll", save, { passive: true });
-    return () => window.removeEventListener("scroll", save);
+    return () => {
+      window.removeEventListener("scroll", save);
+      cancelAnimationFrame(raf);
+    };
   }, [locKey]);
   useLayoutEffect(() => {
-    const y = pendingY.current;
-    if (y == null || !noCv || list.isLoading) return;
-    const reachable = document.documentElement.scrollHeight - window.innerHeight >= y;
-    if (!reachable && list.hasNextPage && !list.isFetchNextPageError) {
+    const a = pending.current;
+    if (!a || !noCv || list.isLoading) return;
+    const el = document.querySelector(cardSel(a.id));
+    if (!el && list.hasNextPage && !list.isFetchNextPageError) {
       if (!list.isFetchingNextPage) list.fetchNextPage();
       return;
     }
-    window.scrollTo(0, y);
-    pendingY.current = null;
+    // Card gone (deleted/moved) and nothing more to load: fall back to the raw offset.
+    window.scrollTo(0, el ? el.getBoundingClientRect().top + window.scrollY - a.top : a.y);
+    pending.current = null;
   }, [noCv, list.data, list.isLoading, list.isFetchingNextPage, list.hasNextPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Infinite scroll.
