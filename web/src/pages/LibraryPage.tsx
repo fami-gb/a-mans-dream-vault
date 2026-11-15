@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { DndContext, DragOverlay, MouseSensor, pointerWithin, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { ChevronRight, CloudUpload, FolderPlus, GalleryVerticalEnd, Loader2, Menu as MenuIcon, MoreHorizontal, Search, Trash2, X } from "lucide-react";
 import { api, media, type Sort, type Video } from "../lib/api";
@@ -13,6 +13,9 @@ import { FolderCard, UploadCard, VideoCard, type CardClick } from "../components
 import { SelectionBar } from "../components/SelectionBar";
 import { ConfirmSheet, Menu } from "../components/ui";
 import { useQueryClient } from "@tanstack/react-query";
+
+// Scroll offset per history entry (location.key), so going back lands where you left.
+const scrollMem = new Map<string, number>();
 
 export function LibraryPage() {
   const query = useListQuery();
@@ -77,6 +80,33 @@ export function LibraryPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [query, view, trash]);
+
+  // ---- scroll restoration (browser's own runs before the list renders, and lands off) ----
+  const { key: locKey } = useLocation();
+  const pendingY = useRef<number | null>(null);
+  // ponytail: stays true for the rest of a restored visit — content-visibility's 240px guess
+  // would shift cards above the viewport; re-enable by measuring real card height if big grids lag.
+  const [noCv, setNoCv] = useState(false);
+  useLayoutEffect(() => {
+    history.scrollRestoration = "manual";
+    const y = scrollMem.get(locKey) ?? null;
+    pendingY.current = y;
+    setNoCv(y != null);
+    const save = () => pendingY.current == null && scrollMem.set(locKey, window.scrollY);
+    window.addEventListener("scroll", save, { passive: true });
+    return () => window.removeEventListener("scroll", save);
+  }, [locKey]);
+  useLayoutEffect(() => {
+    const y = pendingY.current;
+    if (y == null || !noCv || list.isLoading) return;
+    const reachable = document.documentElement.scrollHeight - window.innerHeight >= y;
+    if (!reachable && list.hasNextPage && !list.isFetchNextPageError) {
+      if (!list.isFetchingNextPage) list.fetchNextPage();
+      return;
+    }
+    window.scrollTo(0, y);
+    pendingY.current = null;
+  }, [noCv, list.data, list.isLoading, list.isFetchingNextPage, list.hasNextPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Infinite scroll.
   const sentinel = useRef<HTMLDivElement>(null);
@@ -339,7 +369,7 @@ export function LibraryPage() {
             ) : items.length === 0 && placeholders.length === 0 ? (
               <EmptyState view={view} q={query.q} onUpload={upload} />
             ) : (
-              <div className="grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 sm:gap-x-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className={`grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 sm:gap-x-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 ${noCv ? "no-cv" : ""}`}>
                 {placeholders.map((u) => (
                   <UploadCard key={u.key} u={u} />
                 ))}

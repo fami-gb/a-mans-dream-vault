@@ -30,6 +30,10 @@ body {
   contain-intrinsic-size: auto 240px;
 }
 
+.no-cv .card-cv {
+  content-visibility: visible;
+}
+
 .safe-bottom {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
